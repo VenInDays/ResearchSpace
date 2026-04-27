@@ -210,7 +210,7 @@ fun SourceMarkers(
 ) {
     val visibleCount = if (expanded) links.size else minOf(links.size, 3)
     val markerSize = 24.dp
-    val overlap = if (visibleCount > 1) 8.dp else 0.dp
+    val overlap = if (visibleCount > 1) 8 else 0
 
     Row(
         modifier = modifier.padding(top = 6.dp),
