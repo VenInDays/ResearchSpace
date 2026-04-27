@@ -48,12 +48,10 @@ jobs:
           keytool -genkey -v -keystore release.keystore -alias rs -keyalg RSA -keysize 2048 -validity 10000 -storepass researchspace -keypass researchspace -dname "CN=RS, OU=Dev, O=RS, L=U, ST=U, C=US"
           BT=${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
-          ${BT}/zipalign -f 4 ${APK} app/build/outputs/apk/release/aligned.apk
-          ${BT}/apksigner sign --ks release.keystore --ks-pass pass:researchspace --ks-key-alias rs --key-pass pass:researchspace --out app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk app/build/outputs/apk/release/aligned.apk || true
-          if [ ! -f "app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk" ]; then
-            mkdir -p app/build/outputs/apk/release
-            cp ${APK} app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk
-          fi
+          echo "Found APK: ${APK}"
+          mkdir -p app/build/outputs/apk/release
+          cp ${APK} app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk
+          ${BT}/zipalign -f 4 ${APK} app/build/outputs/apk/release/aligned.apk && ${BT}/apksigner sign --ks release.keystore --ks-pass pass:researchspace --ks-key-alias rs --key-pass pass:researchspace --out app/build/outputs/apk/release/ResearchSpace-v2.0.0-signed.apk app/build/outputs/apk/release/aligned.apk || echo "Signing skipped, using unsigned APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
