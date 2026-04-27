@@ -131,11 +131,11 @@ fun ResearchSpaceScreen(
             visible = isEditorOpen,
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = spring<Float>(dampingRatio = 0.85f, stiffness = 300f)
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f)
             ) + fadeIn(animationSpec = tween(200)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = spring<Float>(dampingRatio = 0.9f, stiffness = 400f)
+                animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)
             ) + fadeOut(animationSpec = tween(150)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
