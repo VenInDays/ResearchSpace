@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Research Space</string>
+    <string name="orbital_add_note">New Note</string>
+    <string name="orbital_search">Search</string>
+    <string name="orbital_settings">Settings</string>
+    <string name="orbital_bookmarks">Bookmarks</string>
+    <string name="note_placeholder">Start writing your research notes…</string>
+    <string name="paste_link_hint">Paste a URL to capture its metadata</string>
+    <string name="empty_state">Your research canvas is empty.\nTap the orb to begin.</string>
+</resources>

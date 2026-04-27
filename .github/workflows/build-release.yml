@@ -1,0 +1,140 @@
+name: Build APK & Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Create gradle wrapper
+        run: |
+          mkdir -p gradle/wrapper
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+      - name: Create gradlew
+        run: |
+          curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew -o gradlew
+          chmod +x gradlew
+          curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew.bat -o gradlew.bat
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+        env:
+          JAVA_TOOL_OPTIONS: "-Xmx4g"
+
+      - name: Sign APK
+        run: |
+          # Generate keystore for signing
+          keytool -genkey -v \
+            -keystore release.keystore \
+            -alias researchspace \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass researchspace \
+            -keypass researchspace \
+            -dname "CN=Research Space, OU=Dev, O=ResearchSpace, L=Unknown, ST=Unknown, C=US"
+
+          # Create signing config for release
+          cat > app/signing.properties << 'EOF'
+          storeFile=../release.keystore
+          storePassword=researchspace
+          keyAlias=researchspace
+          keyPassword=researchspace
+          EOF
+
+          # Zipalign
+          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)/zipalign -v 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release-aligned.apk
+
+          # Apksigner
+          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)/apksigner sign \
+            --ks release.keystore \
+            --ks-pass pass:researchspace \
+            --ks-key-alias researchspace \
+            --key-pass pass:researchspace \
+            --out app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk \
+            app/build/outputs/apk/release/app-release-aligned.apk
+
+      - name: Verify APK exists
+        run: |
+          echo "Checking for APK..."
+          ls -la app/build/outputs/apk/release/
+          if [ -f "app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk" ]; then
+            echo "APK found! Size: $(du -h app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk | cut -f1)"
+          else
+            echo "No signed APK found, using unsigned APK"
+            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk
+          fi
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "## Research Space v1.0.0" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "**Built:** ${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Features" >> $GITHUB_OUTPUT
+          echo "- Spatial 2D Canvas with pan & zoom" >> $GITHUB_OUTPUT
+          echo "- Orbital Hub radial navigation with haptic feedback" >> $GITHUB_OUTPUT
+          echo "- Floating overlap toolbar with rich formatting" >> $GITHUB_OUTPUT
+          echo "- OpenGraph link metadata capture & Visual Link Cards" >> $GITHUB_OUTPUT
+          echo "- Gaussian blur image overlays on link artifacts" >> $GITHUB_OUTPUT
+          echo "- Paper-stack layering & neumorphic design" >> $GITHUB_OUTPUT
+          echo "- Local JSON persistence for offline use" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "### Design" >> $GITHUB_OUTPUT
+          echo "- Anti-Material Design (no TopAppBar, FAB, or Cards)" >> $GITHUB_OUTPUT
+          echo "- Tactile Minimalism: grain textures, soft shadows" >> $GITHUB_OUTPUT
+          echo "- Off-white (#F5F5F7) / Ink-black (#1D1D1F) palette" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.0
+          name: "Research Space v1.0.0"
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

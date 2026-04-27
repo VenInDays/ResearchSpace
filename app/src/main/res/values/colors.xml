@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="off_white">#F5F5F7</color>
+    <color name="ink_black">#1D1D1F</color>
+    <color name="subtle_grey">#E5E5E7</color>
+    <color name="muted_text">#86868B</color>
+    <color name="paper_stack">#EAEAECEF</color>
+    <color name="shadow_light">#FFFFFF</color>
+    <color name="shadow_dark">#D1D1D6</color>
+    <color name="accent_warm">#C4A882</color>
+    <color name="grain_overlay">#1A000000</color>
+</resources>
