@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -23,8 +22,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -79,18 +77,11 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-gif:2.5.0")
 
-    // Networking - OkHttp + Jsoup for OG parsing
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Networking - Jsoup for OG parsing
     implementation("org.jsoup:jsoup:1.17.2")
 
     // Serialization
     implementation("com.google.code.gson:gson:2.10.1")
-
-    // Room for local persistence
-    val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomVersion")
-    implementation("androidx.room:room-ktx:$roomVersion")
-    annotationProcessor("androidx.room:room-compiler:$roomVersion")
 
     // Accompanist for system UI controller
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")

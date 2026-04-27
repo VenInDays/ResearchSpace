@@ -1,5 +1,6 @@
 package com.researchspace.ui.components
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -9,10 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,7 @@ import com.researchspace.ui.theme.RSColors
 /**
  * Visual Link Card — renders a link as a "Visual Artifact".
  * Uses og:image as background with Gaussian blur overlay (15dp) and white typography.
+ * On API 31+ uses RenderEffect for native blur; on older APIs uses scaled-down + alpha layering.
  * Anti-Material: Not a standard Card. Feels like a torn clipping pasted onto the canvas.
  */
 @Composable
@@ -33,6 +35,7 @@ fun VisualLinkCard(
     onClick: () -> Unit = {}
 ) {
     val cardShape = RoundedCornerShape(12.dp)
+    val context = LocalContext.current
 
     Box(
         modifier = modifier
@@ -51,37 +54,38 @@ fun VisualLinkCard(
                 shape = cardShape
             )
     ) {
-        // Background image with blur
+        // Background image with blur effect
         if (metadata.hasImage) {
-            // Blurred background layer
-            AsyncImage(
-                model = metadata.imageUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        // Render blur effect for Gaussian blur (radius ~15dp)
-                        renderEffect = android.graphics.BlurEffect.create(
-                            15f, 15f,
-                            android.graphics.Shader.TileMode.CLAMP
-                        )
-                    }
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // API 31+: Native RenderEffect Gaussian blur
+                AsyncImage(
+                    model = metadata.imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            renderEffect = android.graphics.RenderEffect
+                                .createBlurEffect(15f, 15f, android.graphics.Shader.TileMode.CLAMP)
+                        }
+                )
+            } else {
+                // Pre-31: Simulated blur via scale-down + up
+                AsyncImage(
+                    model = metadata.imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = 1.15f
+                            scaleY = 1.15f
+                            alpha = 0.6f
+                        }
+                )
+            }
 
-            // Slightly sharper overlay image
-            AsyncImage(
-                model = metadata.imageUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = 0.4f
-                    }
-            )
-
-            // Dark gradient overlay
+            // Dark gradient overlay for text readability
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -94,12 +98,8 @@ fun VisualLinkCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        color = RSColors.SubtleGrey
-                    )
-                    .background(
-                        color = RSColors.GrainOverlay
-                    )
+                    .background(color = RSColors.SubtleGrey)
+                    .background(color = RSColors.GrainOverlay)
             )
         }
 
