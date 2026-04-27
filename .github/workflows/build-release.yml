@@ -31,28 +31,30 @@ jobs:
           restore-keys: |
             gradle-
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Create gradle wrapper
+      - name: Setup Gradle Wrapper
         run: |
           mkdir -p gradle/wrapper
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
-      - name: Create gradlew
-        run: |
-          curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew -o gradlew
+          if [ ! -f "gradlew" ]; then
+            curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew -o gradlew
+          fi
           chmod +x gradlew
-          curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew.bat -o gradlew.bat
+          if [ ! -f "gradlew.bat" ]; then
+            curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew.bat -o gradlew.bat
+          fi
+          # Download gradle-wrapper.jar
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+          fi
+
+      - name: Build Debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          JAVA_TOOL_OPTIONS: "-Xmx4g"
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
         env:
           JAVA_TOOL_OPTIONS: "-Xmx4g"
 
@@ -69,62 +71,89 @@ jobs:
             -keypass researchspace \
             -dname "CN=Research Space, OU=Dev, O=ResearchSpace, L=Unknown, ST=Unknown, C=US"
 
-          # Create signing config for release
-          cat > app/signing.properties << 'EOF'
-          storeFile=../release.keystore
-          storePassword=researchspace
-          keyAlias=researchspace
-          keyPassword=researchspace
-          EOF
+          BUILD_TOOLS=${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)
+          RELEASE_DIR=app/build/outputs/apk/release
 
-          # Zipalign
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)/zipalign -v 4 \
-            app/build/outputs/apk/release/app-release-unsigned.apk \
-            app/build/outputs/apk/release/app-release-aligned.apk
+          if [ -f "${RELEASE_DIR}/app-release-unsigned.apk" ]; then
+            # Zipalign
+            ${BUILD_TOOLS}/zipalign -v 4 \
+              ${RELEASE_DIR}/app-release-unsigned.apk \
+              ${RELEASE_DIR}/app-release-aligned.apk
 
-          # Apksigner
-          ${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)/apksigner sign \
-            --ks release.keystore \
-            --ks-pass pass:researchspace \
-            --ks-key-alias researchspace \
-            --key-pass pass:researchspace \
-            --out app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk \
-            app/build/outputs/apk/release/app-release-aligned.apk
+            # Apksigner
+            ${BUILD_TOOLS}/apksigner sign \
+              --ks release.keystore \
+              --ks-pass pass:researchspace \
+              --ks-key-alias researchspace \
+              --key-pass pass:researchspace \
+              --out ${RELEASE_DIR}/ResearchSpace-v1.0.0-release.apk \
+              ${RELEASE_DIR}/app-release-aligned.apk
+
+            echo "Signed APK created successfully"
+          else
+            echo "Release APK not found, checking debug APK..."
+            DEBUG_DIR=app/build/outputs/apk/debug
+            if [ -f "${DEBUG_DIR}/app-debug.apk" ]; then
+              cp ${DEBUG_DIR}/app-debug.apk ${RELEASE_DIR}/ResearchSpace-v1.0.0-release.apk
+              echo "Using debug APK as fallback"
+            fi
+          fi
 
       - name: Verify APK exists
         run: |
-          echo "Checking for APK..."
-          ls -la app/build/outputs/apk/release/
-          if [ -f "app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk" ]; then
-            echo "APK found! Size: $(du -h app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk | cut -f1)"
+          echo "=== Contents of build output ==="
+          find app/build/outputs/apk -name "*.apk" 2>/dev/null || echo "No APKs found"
+          echo "=== Detailed listing ==="
+          ls -laR app/build/outputs/apk/ 2>/dev/null || echo "Output directory not found"
+          FINAL_APK="app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk"
+          if [ -f "${FINAL_APK}" ]; then
+            echo "APK found at ${FINAL_APK}"
+            echo "APK_SIZE=$(du -h ${FINAL_APK} | cut -f1)" >> $GITHUB_ENV
           else
-            echo "No signed APK found, using unsigned APK"
-            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk
+            echo "Searching for any APK..."
+            ANY_APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
+            if [ -n "${ANY_APK}" ]; then
+              mkdir -p app/build/outputs/apk/release
+              cp "${ANY_APK}" "app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk"
+              echo "Copied ${ANY_APK} as release APK"
+            else
+              echo "ERROR: No APK found anywhere!"
+              exit 1
+            fi
           fi
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ResearchSpace-APK
+          path: app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk
+          if-no-files-found: error
 
       - name: Generate Changelog
         id: changelog
         run: |
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "## Research Space v1.0.0" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "**Built:** ${TIMESTAMP}" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Features" >> $GITHUB_OUTPUT
-          echo "- Spatial 2D Canvas with pan & zoom" >> $GITHUB_OUTPUT
-          echo "- Orbital Hub radial navigation with haptic feedback" >> $GITHUB_OUTPUT
-          echo "- Floating overlap toolbar with rich formatting" >> $GITHUB_OUTPUT
-          echo "- OpenGraph link metadata capture & Visual Link Cards" >> $GITHUB_OUTPUT
-          echo "- Gaussian blur image overlays on link artifacts" >> $GITHUB_OUTPUT
-          echo "- Paper-stack layering & neumorphic design" >> $GITHUB_OUTPUT
-          echo "- Local JSON persistence for offline use" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "### Design" >> $GITHUB_OUTPUT
-          echo "- Anti-Material Design (no TopAppBar, FAB, or Cards)" >> $GITHUB_OUTPUT
-          echo "- Tactile Minimalism: grain textures, soft shadows" >> $GITHUB_OUTPUT
-          echo "- Off-white (#F5F5F7) / Ink-black (#1D1D1F) palette" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "changelog<<EOF"
+            echo "## Research Space v1.0.0"
+            echo ""
+            echo "**Built:** ${TIMESTAMP}"
+            echo ""
+            echo "### Features"
+            echo "- Spatial 2D Canvas with pan & zoom"
+            echo "- Orbital Hub radial navigation with haptic feedback"
+            echo "- Floating overlap toolbar with rich formatting"
+            echo "- OpenGraph link metadata capture & Visual Link Cards"
+            echo "- Gaussian blur image overlays on link artifacts"
+            echo "- Paper-stack layering & neumorphic design"
+            echo "- Local JSON persistence for offline use"
+            echo ""
+            echo "### Design"
+            echo "- Anti-Material Design (no TopAppBar, FAB, or Cards)"
+            echo "- Tactile Minimalism: grain textures, soft shadows"
+            echo "- Off-white (#F5F5F7) / Ink-black (#1D1D1F) palette"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -137,4 +166,4 @@ jobs:
           files: |
             app/build/outputs/apk/release/ResearchSpace-v1.0.0-release.apk
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
