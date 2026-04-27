@@ -1,0 +1,93 @@
+name: Build APK & Release v2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      - name: Setup Gradle Wrapper
+        run: |
+          mkdir -p gradle/wrapper
+          if [ ! -f "gradlew" ]; then curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew -o gradlew; fi
+          chmod +x gradlew
+          if [ ! -f "gradlew.bat" ]; then curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew.bat -o gradlew.bat; fi
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then curl -sL https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar; fi
+
+      - name: Build APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          JAVA_TOOL_OPTIONS: "-Xmx4g"
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias rs -keyalg RSA -keysize 2048 -validity 10000 -storepass researchspace -keypass researchspace -dname "CN=RS, OU=Dev, O=RS, L=U, ST=U, C=US"
+          BT=${ANDROID_HOME}/build-tools/$(ls ${ANDROID_HOME}/build-tools | tail -1)
+          APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
+          ${BT}/zipalign -f 4 ${APK} app/build/outputs/apk/release/aligned.apk
+          ${BT}/apksigner sign --ks release.keystore --ks-pass pass:researchspace --ks-key-alias rs --key-pass pass:researchspace --out app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk app/build/outputs/apk/release/aligned.apk || true
+          if [ ! -f "app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk" ]; then
+            mkdir -p app/build/outputs/apk/release
+            cp ${APK} app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ResearchSpace-APK
+          path: app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v2.0.0
+          name: "Research Space v2.0.0"
+          body: |
+            ## Research Space v2.0.0
+
+            ### Defect Fixes
+            - Fixed crash on URL capture (removed dedicated input, inline detection)
+            - Fixed toolbar positioning (glassmorphism overlay, 20% width)
+            - Removed BottomSheet (inline expansion instead)
+
+            ### New Features
+            - Inline URL auto-detection in text editor with background fetch
+            - In-context Artifact Cards with blurred og:image backgrounds
+            - Source Markers (24dp blue icons) in note cards
+            - Inline Expansion for note details
+            - Source Detail overlay on marker click
+
+            ### Design
+            - Glassmorphism floating toolbar
+            - Grainy paper textures
+            - Mono-spaced typography for data
+            - Muted organic palette
+          draft: false
+          prerelease: false
+          files: app/build/outputs/apk/release/ResearchSpace-v2.0.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}

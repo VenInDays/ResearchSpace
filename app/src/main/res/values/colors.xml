@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="off_white">#F5F5F0</color>
+    <color name="ink_black">#1D1D1F</color>
+    <color name="subtle_grey">#C7C7CC</color>
+    <color name="muted_text">#8E8E93</color>
+    <color name="paper">#EDEDE8</color>
+</resources>
