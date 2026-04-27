@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,11 +131,11 @@ fun ResearchSpaceScreen(
             visible = isEditorOpen,
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = 300)
+                animationSpec = spring<Float>(dampingRatio = 0.85f, stiffness = 300f)
             ) + fadeIn(animationSpec = tween(200)),
             exit = slideOutVertically(
                 targetOffsetY = { it },
-                animationSpec = spring(dampingRatio = 0.9f, stiffness = 400)
+                animationSpec = spring<Float>(dampingRatio = 0.9f, stiffness = 400f)
             ) + fadeOut(animationSpec = tween(150)),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
@@ -276,7 +275,7 @@ private fun NoteEditorPanel(
             }
         }
 
-        HorizontalDivider(
+        Divider(
             modifier = Modifier.padding(horizontal = 20.dp),
             thickness = 0.5.dp,
             color = RSColors.SubtleGrey

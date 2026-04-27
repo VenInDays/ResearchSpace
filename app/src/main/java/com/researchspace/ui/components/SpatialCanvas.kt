@@ -69,14 +69,18 @@ fun SpatialCanvas(
                 val startX = (offsetX % dotSpacing) - dotSpacing
                 val startY = (offsetY % dotSpacing) - dotSpacing
 
-                for (x in startX..size.width step dotSpacing) {
-                    for (y in startY..size.height step dotSpacing) {
+                var x = startX
+                while (x < size.width) {
+                    var y = startY
+                    while (y < size.height) {
                         drawCircle(
                             color = dotColor,
                             radius = dotRadius,
                             center = Offset(x, y)
                         )
+                        y += dotSpacing
                     }
+                    x += dotSpacing
                 }
             }
             .pointerInput(Unit) {
