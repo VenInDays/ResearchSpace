@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +68,7 @@ fun VisualLinkCard(
                         .graphicsLayer {
                             renderEffect = android.graphics.RenderEffect
                                 .createBlurEffect(15f, 15f, android.graphics.Shader.TileMode.CLAMP)
+                                .asComposeRenderEffect()
                         }
                 )
             } else {

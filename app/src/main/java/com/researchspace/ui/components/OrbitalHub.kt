@@ -186,9 +186,7 @@ fun OrbitalHub(
                         colors = listOf(
                             RSColors.OrbFill,
                             Color(0xFF2D2D2F)
-                        ),
-                        center = Offset(size.width / 2, size.height / 2),
-                        radius = size.width / 2
+                        )
                     )
                 )
                 .pointerInput(Unit) {

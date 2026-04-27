@@ -151,7 +151,8 @@ fun FloatingToolbar(
                                 detectDragGestures(
                                     onDragStart = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
+                                    },
+                                    onDrag = { _, _ -> }
                                 )
                             },
                         contentAlignment = Alignment.Center

@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -97,7 +99,7 @@ fun LinkInputField(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.Link,
+                imageVector = Icons.Default.Link,
                 contentDescription = null,
                 tint = RSColors.MutedText,
                 modifier = Modifier.size(16.dp)

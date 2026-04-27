@@ -2,7 +2,9 @@ package com.researchspace.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.*
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -83,15 +85,17 @@ fun SpatialCanvas(
                 }
             }
             .pointerInput(Unit) {
-                detectTransformGestures { centroid, pan, zoom, _ ->
-                    scale = (scale * zoom).coerceIn(0.3f, 3f)
-                    offsetX += pan.x
-                    offsetY += pan.y
+                detectTransformGestures(
+                    onGesture = { centroid, pan, zoom, rotation ->
+                        scale = (scale * zoom).coerceIn(0.3f, 3f)
+                        offsetX += pan.x
+                        offsetY += pan.y
 
-                    if (zoom != 1f) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        if (zoom != 1f) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
                     }
-                }
+                )
             }
     ) {
         // Notes layer with transform
